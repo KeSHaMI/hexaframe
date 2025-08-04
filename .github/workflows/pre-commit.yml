@@ -23,8 +23,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Install pre-commit
-        run: uv pip install pre-commit
+      - name: Set up uv venv and install pre-commit
+        run: |
+          uv venv
+          uv pip install pre-commit
 
       - name: Cache pre-commit
         uses: actions/cache@v4
@@ -35,4 +37,4 @@ jobs:
             ${{ runner.os }}-precommit-
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        run: uv run pre-commit run --all-files
