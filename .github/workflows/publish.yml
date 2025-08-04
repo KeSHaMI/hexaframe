@@ -37,7 +37,8 @@ jobs:
       - name: Create uv venv and install dependencies
         run: |
           uv venv
-          uv pip install -e .[dev]
+          # Install dev and example extras so tests that import fastapi work
+          uv pip install -e .[dev,example]
           uv pip install build
 
       - name: Lint
