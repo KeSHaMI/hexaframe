@@ -4,10 +4,55 @@ Scaffolded with Hexaframe CLI.
 
 ## Getting started
 
-- Install dependencies (example with uv):
+This project can be used in two modes:
+1) Local development against a local clone of Hexaframe (recommended while Hexaframe isn't published to PyPI)
+2) Production/PyPI mode (once Hexaframe is published)
+
+### 1) Local development with a local Hexaframe clone
+
+- Create and activate a virtual environment (using uv):
   uv venv
   source .venv/bin/activate
-  uv pip install fastapi pytest pytest-asyncio
+
+- Point uv to your local Hexaframe checkout by uncommenting [tool.uv.sources] in pyproject.toml and adjusting the paths:
+  [tool.uv.sources]
+  hexaframe = { path = "/abs/path/to/hexaframe", editable = true }
+  hexaframe-cli = { path = "/abs/path/to/hexaframe/src/hexaframe_cli", editable = true }
+  hexaframe-fastapi = { path = "/abs/path/to/hexaframe/src/hexaframe_fastapi", editable = true }
+
+  This makes uv prefer local sources over PyPI for these packages.
+
+- Install this project and other runtime/dev deps:
+  uv pip install -e .
+  {% if http_adapter == "fastapi" -%}
+  uv pip install fastapi uvicorn[standard]
+  {%- endif %}
+  {% if tests == "pytest" -%}
+  uv pip install pytest pytest-asyncio
+  {%- endif %}
+
+- Run tests:
+  uv run pytest -q
+
+- Run the app (if http scaffold selected):
+  uv run uvicorn {{ package_name }}.interface.http.app:app --reload
+
+### 2) Production/PyPI mode
+
+Once Hexaframe is available on PyPI, you can rely on PyPI dependencies without local sources:
+
+- Create and activate venv:
+  uv venv
+  source .venv/bin/activate
+
+- Install this project and deps:
+  uv pip install -e .
+  {% if http_adapter == "fastapi" -%}
+  uv pip install fastapi uvicorn[standard]
+  {%- endif %}
+  {% if tests == "pytest" -%}
+  uv pip install pytest pytest-asyncio
+  {%- endif %}
 
 - Run tests:
   uv run pytest -q

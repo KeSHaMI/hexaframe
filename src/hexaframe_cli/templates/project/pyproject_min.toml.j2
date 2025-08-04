@@ -3,6 +3,7 @@ name = "{{ package_name }}"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
+    # Core framework from PyPI for production usage. During local dev, this can be overridden via [tool.uv.sources] below.
     "hexaframe>=0.1.0",
     {% if http_adapter == "fastapi" %}"fastapi>=0.109.0", "uvicorn[standard]>=0.27.0",{% endif %}
     {% if tests == "pytest" %}"pytest>=8.0.0", "pytest-cov>=4.1.0",{% endif %}
@@ -11,15 +12,22 @@ dependencies = [
     "python-dotenv>=1.0.1",
 ]
 
+# Local development override (commented by default).
+# If you are developing against a local clone of hexaframe, uncomment the block below
+# and update the absolute path to your clone. uv will prefer these sources over PyPI.
+# [tool.uv.sources]
+# hexaframe = { path = "/Users/you/code/hexaframe", editable = true }
+# hexaframe-cli = { path = "/Users/you/code/hexaframe/src/hexaframe_cli", editable = true }
+# hexaframe-fastapi = { path = "/Users/you/code/hexaframe/src/hexaframe_fastapi", editable = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[[tool.uv.index]]
-# Optional name for the index.
-name = "test-pypi"
-# Required URL for the index.
-url = "https://test.pypi.org/legacy/"
+# Optional additional index example (kept commented). Enable if you publish to TestPyPI.
+# [[tool.uv.index]]
+# name = "test-pypi"
+# url = "https://test.pypi.org/legacy/"
 
 [tool.hatch.build.targets.sdist]
 include = ["/src"]
