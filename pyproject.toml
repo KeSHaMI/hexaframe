@@ -1,8 +1,8 @@
 [project]
 name = "hexaframe"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Python framework for building applications with a hexagonal architecture."
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Hexaframe Maintainers" }]
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -39,12 +39,20 @@ example = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/your-username/hexaframe"
-"Bug Tracker" = "https://github.com/your-username/hexaframe/issues"
+Homepage = "https://github.com/KeSHaMI/hexaframe"
+Issues = "https://github.com/KeSHaMI/hexaframe/issues"
+Repository = "https://github.com/KeSHaMI/hexaframe.git"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.license]
+text = "MIT"
 
 [tool.ruff]
 line-length = 88
@@ -56,7 +64,7 @@ select = ["E", "F", "I"]
 include = ["/src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/hexaframe"]
+packages = ["src/hexaframe", "src/hexaframe_cli", "src/hexaframe_fastapi"]
 
 [tool.uv.workspace]
 members = ["example"]
