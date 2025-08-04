@@ -12,9 +12,19 @@ def run_uv(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """
     Run a command via uv run (for Python execution) or bare uv for pip/venv if needed.
     For scaffolding tests we only need to run pytest in the generated project.
+
+    We set UV_ACTIVE=1 to force uv to use the environment in cwd ('.venv'), avoiding
+    conflicts with the repository-level VIRTUAL_ENV that CI may export.
     """
+    env = os.environ.copy()
+    env["UV_ACTIVE"] = "1"
     return subprocess.run(
-        cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        cmd,
+        cwd=str(cwd),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 
@@ -70,5 +80,6 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     )
     assert r2b.returncode == 0, f"uv pip install deps failed:\n{r2b.stdout}"
 
-    r3 = run_uv(["uv", "run", "pytest", "-q"], cwd=project_dir)
+    # Use --active to ensure uv targets the local project venv in project_dir
+    r3 = run_uv(["uv", "--active", "run", "pytest", "-q"], cwd=project_dir)
     assert r3.returncode == 0, f"scaffolded tests failed:\n{r3.stdout}"
