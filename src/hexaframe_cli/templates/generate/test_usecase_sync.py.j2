@@ -1,0 +1,10 @@
+from __future__ import annotations
+
+from {{ package_name }}.application.use_cases.{{ snake_name }} import {{ ClassName }}, {{ ClassName }}Input
+
+
+def test_{{ snake_name }}_returns_value():
+    uc = {{ ClassName }}()
+    out = uc.run({{ ClassName }}Input(value=1))
+    assert out.is_ok()
+    assert out.unwrap().value == 1

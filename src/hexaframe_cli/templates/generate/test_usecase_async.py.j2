@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+import pytest
+
+from {{ package_name }}.application.use_cases.{{ snake_name }} import {{ ClassName }}, {{ ClassName }}Input
+
+
+@pytest.mark.asyncio
+async def test_{{ snake_name }}_returns_value():
+    uc = {{ ClassName }}()
+    out = await uc.run({{ ClassName }}Input(value=1))
+    assert out.is_ok()
+    assert out.unwrap().value == 1

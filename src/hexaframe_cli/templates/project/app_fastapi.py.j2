@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+
+from hexaframe.errors import ValidationError
+from hexaframe.use_case import UseCase
+from hexaframe_fastapi import build_router
+
+
+class Ping(UseCase[dict, dict]):
+    def validate(self, input: dict) -> None:
+        if "name" not in input:
+            raise ValidationError("missing 'name'")
+
+    def perform(self, input: dict) -> dict:
+        return {"message": f"hello, {input['name']}"}
+
+
+app = FastAPI()
+
+router = build_router(
+    path="/ping",
+    method="post",
+    use_case=Ping(),
+    input_parser=lambda body: dict(body),
+    output_mapper=lambda out: out,
+)
+
+app.include_router(router)

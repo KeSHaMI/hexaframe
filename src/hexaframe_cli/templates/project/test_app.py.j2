@@ -1,0 +1,11 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+from {{ package_name }}.interface.http.app import app
+
+
+def test_ping():
+    client = TestClient(app)
+    res = client.post("/ping", json={"name": "world"})
+    assert res.status_code == 200
+    assert res.json() == {"message": "hello, world"}

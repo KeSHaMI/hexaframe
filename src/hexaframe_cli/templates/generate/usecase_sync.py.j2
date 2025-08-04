@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from hexaframe.errors import ValidationError
+from hexaframe.use_case import UseCase
+
+
+@dataclass
+class {{ ClassName }}Input:
+    value: int
+
+
+@dataclass
+class {{ ClassName }}Output:
+    value: int
+
+
+class {{ ClassName }}(UseCase[{{ ClassName }}Input, {{ ClassName }}Output]):
+    def validate(self, input: {{ ClassName }}Input) -> None:
+        if input.value < 0:
+            raise ValidationError("value must be non-negative")
+
+    def execute(self, input: {{ ClassName }}Input) -> {{ ClassName }}Output:
+        # Implement your business logic here
+        return {{ ClassName }}Output(value=input.value)

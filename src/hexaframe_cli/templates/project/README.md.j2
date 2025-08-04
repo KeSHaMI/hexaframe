@@ -1,0 +1,16 @@
+# {{ project_name }}
+
+Scaffolded with Hexaframe CLI.
+
+## Getting started
+
+- Install dependencies (example with uv):
+  uv venv
+  source .venv/bin/activate
+  uv pip install fastapi pytest pytest-asyncio
+
+- Run tests:
+  uv run pytest -q
+
+- Run the app (if http scaffold selected):
+  uv run uvicorn {{ package_name }}.interface.http.app:app --reload

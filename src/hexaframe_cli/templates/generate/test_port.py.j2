@@ -1,0 +1,10 @@
+from __future__ import annotations
+
+from {{ package_name }}.domain.ports.{{ snake_name }} import {{ ClassName }}Port
+from {{ package_name }}.infrastructure.adapters.{{ snake_name }}_inmemory import InMemory{{ ClassName }}Adapter
+
+
+def test_{{ snake_name }}_adapter_satisfies_port():
+    adapter = InMemory{{ ClassName }}Adapter()
+    assert hasattr(adapter, "do")
+    assert adapter.do() == "ok"
