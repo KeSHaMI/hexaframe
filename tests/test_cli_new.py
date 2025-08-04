@@ -72,14 +72,25 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     assert r1.returncode == 0, f"uv venv failed:\n{r1.stdout}"
 
     # Install the scaffolded project itself so `myproj` is importable, and test deps
-    r2 = run_uv(["uv", "pip", "install", "-e", "."], cwd=project_dir)
-    assert r2.returncode == 0, f"uv pip install -e . failed:\n{r2.stdout}"
+    # Install test deps first, then install the local package in editable mode
     r2b = run_uv(
         ["uv", "pip", "install", "fastapi", "pytest", "pytest-asyncio", "httpx"],
         cwd=project_dir,
     )
     assert r2b.returncode == 0, f"uv pip install deps failed:\n{r2b.stdout}"
 
-    # Run pytest via uv; uv will detect and use the project venv created above
+    # Install the scaffolded project itself so `myproj` is importable
+    # Use --no-build-isolation to prevent uv from trying
+    # to resolve workspace-only deps (like private 'hexaframe')
+    r2 = run_uv(
+        ["uv", "pip", "install", "--no-build-isolation", "-e", "."], cwd=project_dir
+    )
+    assert r2.returncode == 0, f"uv pip install -e . failed:\n{r2.stdout}"
+
+    # Ensure uv targets the newly-created project venv
+    # and does not try to resolve workspace deps
+    # We already set UV_ACTIVE=1 in run_uv(), so running from project_dir is enough.
+    # Explicitly pass UV_NO_SYNC=1 to avoid background dependency sync attempts in CI.
+    os.environ["UV_NO_SYNC"] = "1"
     r3 = run_uv(["uv", "run", "pytest", "-q"], cwd=project_dir)
     assert r3.returncode == 0, f"scaffolded tests failed:\n{r3.stdout}"
