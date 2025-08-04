@@ -21,10 +21,6 @@ dependencies = [
     "jinja2>=3.1",
 ]
 
-[project.scripts]
-hexaframe = "hexaframe_cli.main:main"
-hxf = "hexaframe_cli.main:main"
-
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.14",
@@ -60,7 +56,7 @@ select = ["E", "F", "I"]
 include = ["/src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/hexaframe", "src/hexaframe_cli", "src/hexaframe_fastapi"]
+packages = ["src/hexaframe"]
 
 [tool.uv.workspace]
 members = ["example"]
