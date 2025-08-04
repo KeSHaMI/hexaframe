@@ -37,10 +37,9 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
             "-c",
             (
                 "import sys; sys.path.insert(0, r'%s'); "
-                "from hexaframe_cli.main import new; "(
-                    "new(project_name='myproj', http='fastapi', tests='pytest', "
-                    "package=None, sample=True)"
-                )
+                "from hexaframe_cli.main import new; "
+                "new(project_name='myproj', http='fastapi', tests='pytest', "
+                "package=None, sample=True)"
             )
             % str(Path("src").resolve()),
         ],
