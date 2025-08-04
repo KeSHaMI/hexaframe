@@ -80,6 +80,6 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     )
     assert r2b.returncode == 0, f"uv pip install deps failed:\n{r2b.stdout}"
 
-    # Use --active to ensure uv targets the local project venv in project_dir
-    r3 = run_uv(["uv", "--active", "run", "pytest", "-q"], cwd=project_dir)
+    # Run pytest via uv; uv will detect and use the project venv created above
+    r3 = run_uv(["uv", "run", "pytest", "-q"], cwd=project_dir)
     assert r3.returncode == 0, f"scaffolded tests failed:\n{r3.stdout}"
