@@ -74,7 +74,19 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     # Install the scaffolded project itself so `myproj` is importable, and test deps
     # Install test deps first, then install the local package in editable mode
     r2b = run_uv(
-        ["uv", "pip", "install", "fastapi", "pytest", "pytest-asyncio", "httpx"],
+        [
+            "uv",
+            "pip",
+            "install",
+            # build backend for editable install
+            "hatchling",
+            "editables",
+            # runtime + test deps
+            "fastapi",
+            "pytest",
+            "pytest-asyncio",
+            "httpx",
+        ],
         cwd=project_dir,
     )
     assert r2b.returncode == 0, f"uv pip install deps failed:\n{r2b.stdout}"
