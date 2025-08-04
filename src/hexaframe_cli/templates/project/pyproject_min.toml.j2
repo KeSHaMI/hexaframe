@@ -15,6 +15,12 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[[tool.uv.index]]
+# Optional name for the index.
+name = "test-pypi"
+# Required URL for the index.
+url = "https://test.pypi.org/legacy/"
+
 [tool.hatch.build.targets.sdist]
 include = ["/src"]
 
