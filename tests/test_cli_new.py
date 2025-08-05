@@ -86,6 +86,71 @@ def test_cli_scaffold_includes_option_deps_in_pyproject(tmp_path: Path):
 @pytest.mark.skipif(
     sys.platform.startswith("win"), reason="Path activation differs on Windows"
 )
+def test_cli_scaffold_generates_docker_and_db_files_when_postgres(tmp_path: Path):
+    """
+    When db='postgres' (now default), the scaffolder must generate:
+      - docker-compose.yml, Dockerfile, .env
+      - alembic.ini, alembic/env.py, alembic/versions/
+      - src/<pkg>/app/db/{config.py, base.py, session.py}
+      - src/<pkg>/app/di.py
+      - src/<pkg>/app/usecases/pong.py
+      - README.md with DB/docker instructions
+    """
+    project_dir = tmp_path / "myproj"
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path("src").resolve())
+
+    # Use explicit db='postgres' to be robust to future default changes
+    create = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; sys.path.insert(0, r'%s'); "
+                "from hexaframe_cli.main import new; "
+                "new(project_name='myproj', http='fastapi', tests='pytest', "
+                "package=None, sample=True, db='postgres')"
+            )
+            % str(Path("src").resolve()),
+        ],
+        cwd=str(tmp_path),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert create.returncode == 0, f"CLI new failed:\n{create.stdout}"
+
+    pkg = "myproj"
+
+    # Docker and env
+    assert (project_dir / "docker-compose.yml").exists(), "docker-compose.yml missing"
+    assert (project_dir / "Dockerfile").exists(), "Dockerfile missing"
+    assert (project_dir / ".env").exists(), ".env missing"
+
+    # Alembic
+    assert (project_dir / "alembic.ini").exists(), "alembic.ini missing"
+    assert (project_dir / "alembic" / "env.py").exists(), "alembic/env.py missing"
+    assert (project_dir / "alembic" / "versions").exists(), "alembic/versions missing"
+
+    # App DB scaffolding
+    assert (project_dir / "src" / pkg / "app" / "db" / "config.py").exists()
+    assert (project_dir / "src" / pkg / "app" / "db" / "base.py").exists()
+    assert (project_dir / "src" / pkg / "app" / "db" / "session.py").exists()
+
+    # DI + Usecase
+    assert (project_dir / "src" / pkg / "app" / "di.py").exists()
+    assert (project_dir / "src" / pkg / "app" / "usecases" / "pong.py").exists()
+
+    # README should exist (overwritten with docker instructions)
+    assert (project_dir / "README.md").exists()
+
+    # Sanity check: FastAPI app still exists
+    assert (project_dir / "src" / pkg / "interface" / "http" / "app.py").exists()
+    assert (project_dir / "tests" / "test_app.py").exists()
+
+
 def test_cli_scaffold_auto_setup_env(tmp_path: Path):
     """
     Ensure `hexaframe new` auto-creates a venv and installs the project

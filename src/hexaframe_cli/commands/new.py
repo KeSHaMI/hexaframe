@@ -16,7 +16,7 @@ class NewOptions:
     tests: str = "pytest"  # pytest only for now
     sample: bool = True
     package: Optional[str] = None
-    db: str = "none"  # none | sqlite | postgres
+    db: str = "postgres"  # none | sqlite | postgres
 
 
 def new_cmd(
@@ -25,7 +25,7 @@ def new_cmd(
     tests: str = "pytest",
     package: Optional[str] = None,
     sample: bool = True,
-    db: str = "none",
+    db: str = "postgres",
 ) -> None:
     """
     Create a new Hexaframe project (src layout).
@@ -112,7 +112,7 @@ def new_cmd(
             fg=typer.colors.YELLOW,
         )
 
-    # DB choice (placeholder hooks for future templates)
+    # DB choice and project files for DB
     db_choice = opts.db.lower()
     if db_choice not in ("none", "sqlite", "postgres"):
         typer.secho(
@@ -120,8 +120,88 @@ def new_cmd(
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
-    # For now, no DB-specific files.
-    # This validates the flag and keeps room for future templates.
+
+    # Scaffold DB files for postgres
+    if db_choice == "postgres":
+        # compose + dockerfiles + env
+        write_file(
+            root / "docker-compose.yml",
+            render_text(
+                "project/docker-compose.yml.j2", {"package_name": package_name}
+            ),
+            exist_ok=True,
+        )
+        write_file(
+            root / "Dockerfile",
+            render_text("project/Dockerfile.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+        write_file(
+            root / ".env",
+            render_text("project/.env.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+
+        # Alembic configuration
+        (root / "alembic").mkdir(parents=True, exist_ok=True)
+        write_file(
+            root / "alembic.ini",
+            render_text("project/alembic.ini.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+        write_file(
+            root / "alembic" / "env.py",
+            render_text("project/alembic/env.py.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+        (root / "alembic" / "versions").mkdir(parents=True, exist_ok=True)
+
+        # App DB package
+        (root / "src" / package_name / "app" / "db").mkdir(parents=True, exist_ok=True)
+        write_file(
+            root / "src" / package_name / "app" / "db" / "__init__.py",
+            "__all__ = []\n",
+            exist_ok=True,
+        )
+        write_file(
+            root / "src" / package_name / "app" / "db" / "config.py",
+            render_text("project/app/db/config.py.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+        write_file(
+            root / "src" / package_name / "app" / "db" / "base.py",
+            render_text("project/app/db/base.py.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+        write_file(
+            root / "src" / package_name / "app" / "db" / "session.py",
+            render_text("project/app/db/session.py.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+
+        # DI container wiring (includes db session provider and pong use-case)
+        write_file(
+            root / "src" / package_name / "app" / "di.py",
+            render_text("project/app/di.py.j2", {"package_name": package_name}),
+            exist_ok=True,
+        )
+
+        # Pong use case (for ping endpoint)
+        (root / "src" / package_name / "app" / "usecases").mkdir(
+            parents=True, exist_ok=True
+        )
+        write_file(
+            root / "src" / package_name / "app" / "usecases" / "__init__.py",
+            "__all__ = []\n",
+            exist_ok=True,
+        )
+        write_file(
+            root / "src" / package_name / "app" / "usecases" / "pong.py",
+            render_text(
+                "project/app/usecases/pong.py.j2", {"package_name": package_name}
+            ),
+            exist_ok=True,
+        )
 
     typer.secho(f"Created project at {root}", fg=typer.colors.GREEN)
     # Write a minimal pyproject.toml so the package is importable via uv run (editable)
