@@ -1,7 +1,7 @@
 [project]
 name = "hexaframe"
 scripts = { hexaframe = "hexaframe_cli.main:app" }
-version = "0.1.8"
+version = "0.1.9"
 description = "A Python framework for building applications with a hexagonal architecture."
 authors = [{ name = "Hexaframe Maintainers" }]
 requires-python = ">=3.10"

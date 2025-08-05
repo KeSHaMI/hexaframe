@@ -125,8 +125,16 @@ def new_cmd(
 
     typer.secho(f"Created project at {root}", fg=typer.colors.GREEN)
     # Write a minimal pyproject.toml so the package is importable via uv run (editable)
+    # Pass selected options into pyproject template
+    # so dependencies (fastapi/sql drivers/tests) are included correctly
     pyproject = render_text(
-        "project/pyproject_min.toml.j2", {"package_name": package_name}
+        "project/pyproject_min.toml.j2",
+        {
+            "package_name": package_name,
+            "http_adapter": http_choice,
+            "tests": tests,
+            "db": db_choice,
+        },
     )
     write_file(root / "pyproject.toml", pyproject, exist_ok=True)
 
@@ -136,7 +144,7 @@ def new_cmd(
     # Ensure build backend is present (hatchling)
     # and editable support (editables) before editable install
     typer.echo(
-        "  uv pip install --index-strategy"
+        "  uv pip install --index-strategy "
         "unsafe-best-match hatchling>=1.20 editables>=0.5"
     )
     # Install from pyproject (build-system declares backend & deps)

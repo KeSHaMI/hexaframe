@@ -31,6 +31,61 @@ def run_uv(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
 @pytest.mark.skipif(
     sys.platform.startswith("win"), reason="Path activation differs on Windows"
 )
+def test_cli_scaffold_includes_option_deps_in_pyproject(tmp_path: Path):
+    """
+    Ensure scaffolded pyproject.toml includes dependencies based on chosen options:
+    - Default http=fastapi => fastapi and uvicorn are included
+    - tests=pytest => pytest, pytest-cov, pytest-asyncio, httpx are included
+    - db=postgres => sqlalchemy and asyncpg are included
+    """
+    project_dir = tmp_path / "myproj"
+
+    # Run scaffolder with explicit options to validate all conditionals
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path("src").resolve())
+    create = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; sys.path.insert(0, r'%s'); "
+                "from hexaframe_cli.main import new; "
+                "new(project_name='myproj', http='fastapi', tests='pytest', "
+                "package=None, sample=True, db='postgres')"
+            )
+            % str(Path("src").resolve()),
+        ],
+        cwd=str(tmp_path),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert create.returncode == 0, f"CLI new failed:\n{create.stdout}"
+
+    pyproject_path = project_dir / "pyproject.toml"
+    assert pyproject_path.exists(), "pyproject.toml not created"
+
+    content = pyproject_path.read_text()
+
+    # HTTP deps
+    assert "fastapi>=" in content, "fastapi dependency missing in pyproject.toml"
+    assert "uvicorn[standard]>=" in content, "uvicorn[standard] dependency missing"
+
+    # Test deps
+    assert "pytest>=" in content, "pytest dependency missing"
+    assert "pytest-cov>=" in content, "pytest-cov dependency missing"
+    assert "pytest-asyncio>=" in content, "pytest-asyncio dependency missing"
+    assert "httpx>=" in content, "httpx dependency missing"
+
+    # DB deps (postgres)
+    assert "sqlalchemy>=" in content, "sqlalchemy dependency missing for postgres"
+    assert "asyncpg>=" in content, "asyncpg dependency missing for postgres"
+
+
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="Path activation differs on Windows"
+)
 def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     # Arrange: create a simple runner that invokes our CLI module directly
     # We avoid installing console scripts; import and call main using python -m.
