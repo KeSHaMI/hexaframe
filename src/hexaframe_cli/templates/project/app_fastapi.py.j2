@@ -33,18 +33,29 @@ app = FastAPI(
     version="0.1.0",
 )
 
+def _parse_ping(body: dict) -> PingIn:
+    return PingIn.model_validate(body)
+
+# Explicitly annotate parser for adapter to infer request model in OpenAPI
+_parse_ping.__annotations__ = {"body": dict, "return": PingIn}
+
+def _map_ping_out(out: PingOut) -> dict:
+    # Ensure JSON-serializable dict is returned
+    return out.model_dump() if hasattr(out, "model_dump") else (out.dict() if hasattr(out, "dict") else out)
+
+# Explicitly annotate mapper so adapter can infer response type if needed
+_map_ping_out.__annotations__ = {"out": PingOut, "return": dict}
+
 router = build_router(
     path="/ping",
     method="post",
     use_case=Ping(),
-    # Map FastAPI request body (Pydantic model) to use-case input type
-    input_parser=lambda body: PingIn.model_validate(body),
-    # Provide explicit response_model so OpenAPI shows precise response schema
+    input_parser=_parse_ping,
+    # Use a named function reference instead of a lambda
+    output_mapper=_map_ping_out,
+    # Provide explicit response model for accurate response schema
     response_model=PingOut,
     summary="Wrapped",
-    # Map use-case output type to FastAPI response (Pydantic model or dict)
-    # Ensure JSON-serializable dict is returned (Pydantic BaseModel -> dict)
-    output_mapper=lambda out: out.model_dump() if hasattr(out, "model_dump") else (out.dict() if hasattr(out, "dict") else out),
 )
 
 app.include_router(router)

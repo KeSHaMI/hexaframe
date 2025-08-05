@@ -8,6 +8,7 @@ from typing import (
     Mapping,
     Optional,
     Type,
+    TypeVar,
     Union,
     get_origin,
 )
@@ -36,9 +37,19 @@ from hexaframe.result import Ok, Result
 from hexaframe.types import to_serializable
 from hexaframe.use_case import AsyncUseCase, UseCase
 
+# Generic input/output types inferred from input_parser/output_mapper annotations
+Tin = TypeVar("Tin")
+Tout = TypeVar("Tout")
+# TypeVars bound to UseCase generics for linking parser/mapper types to UC types
+_UCIn = TypeVar("_UCIn")
+_UCOut = TypeVar("_UCOut")
+
 JSONDict = Dict[str, Any]
-InputParser = Callable[[Mapping[str, Any]], Any]
-OutputMapper = Callable[[Any], Mapping[str, Any]]
+# Parser maps raw JSON body (dict) into the concrete UC input model.
+# We expose the UC input type in the signature to tie generics.
+InputParser = Callable[[Dict[str, Any]], _UCIn]
+# Mapper accepts the UC output model and returns a plain JSON-serializable dict.
+OutputMapper = Callable[[_UCOut], Dict[str, Any]]
 
 
 @dataclass
@@ -89,12 +100,12 @@ def build_router(
     *,
     path: str,
     method: str,
-    use_case: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] | None = None,
+    use_case: Union[UseCase[_UCIn, _UCOut], AsyncUseCase[_UCIn, _UCOut]] | None = None,
     use_case_factory: Optional[
-        Callable[[], Union[UseCase[Any, Any], AsyncUseCase[Any, Any]]]
+        Callable[[], Union[UseCase[_UCIn, _UCOut], AsyncUseCase[_UCIn, _UCOut]]]
     ] = None,
-    input_parser: Optional[InputParser] = None,
-    output_mapper: Optional[OutputMapper] = None,
+    input_parser: Optional[InputParser[_UCIn]] = None,
+    output_mapper: Optional[OutputMapper[_UCOut]] = None,
     error_mapper: Callable[[HexaError], JSONResponse] = default_error_mapper,
     # FastAPI route metadata (optional)
     response_model: Optional[Type[Any]] = None,
@@ -124,16 +135,16 @@ def build_router(
     if http_method not in {"get", "post", "put", "patch", "delete"}:
         raise ValueError(f"Unsupported method: {method}")
 
-    # Note: we keep a generic body: Mapping type to remain framework-agnostic,
+    # Note: we keep a generic body type at runtime for flexibility,
     # but allow FastAPI to attach response_model and docs via route registration below.
     async def handler(
-        body: Optional[Mapping[str, Any]] = None,
-        uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] | None = None,
+        body: Optional[Dict[str, Any]] = None,
+        uc: Union[UseCase[_UCIn, _UCOut], AsyncUseCase[_UCIn, _UCOut]] | None = None,
     ) -> JSONResponse:
         payload = body or {}
         try:
             # Resolve UseCase instance: prefer dependency-injected factory if provided.
-            the_uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]]
+            the_uc: Union[UseCase[_UCIn, _UCOut], AsyncUseCase[_UCIn, _UCOut]]
             if uc is not None:
                 the_uc = uc
             else:
@@ -152,7 +163,7 @@ def build_router(
                 # Ensure JSON-serializable content.
                 # If a Pydantic model or dataclass slips through,
                 # convert it to a dict using to_serializable() best-effort mapping.
-                serializable_content: Mapping[str, Any]
+                serializable_content: Dict[str, Any]
                 if isinstance(mapped, Mapping):
                     serializable_content = {
                         k: to_serializable(v) for k, v in mapped.items()
@@ -176,9 +187,10 @@ def build_router(
     # This keeps runtime signature simple
     # but enhances docs.
     # Attempt to discover annotated input/output types:
-    inferred_input_anno: Optional[Type[Any]] = None
-    inferred_output_anno: Optional[Type[Any]] = None
+    inferred_input_anno: Optional[Type[Any]] = None  # UC InputT
+    inferred_output_anno: Optional[Type[Any]] = None  # UC OutputT
 
+    # Infer Tin from input_parser: return annotation
     try:
         if input_parser is not None:
             in_hints = getattr(input_parser, "__annotations__", {})
@@ -186,29 +198,32 @@ def build_router(
     except Exception:
         inferred_input_anno = None
 
+    # Infer Tout from output_mapper: first param type OR return type of a mapping callable
     try:
         if output_mapper is not None:
             out_hints = getattr(output_mapper, "__annotations__", {})
-            inferred_output_anno = out_hints.get("return") or None
+            # Prefer first non-'return' annotation as the input param type of mapper
+            mapper_param_keys = [k for k in out_hints.keys() if k != "return"]
+            if mapper_param_keys:
+                inferred_output_anno = out_hints.get(mapper_param_keys[0]) or None
+            if inferred_output_anno is None:
+                inferred_output_anno = out_hints.get("return") or None
     except Exception:
         inferred_output_anno = None
 
-    # Build synthetic annotations for FastAPI
+    # Build synthetic annotations for FastAPI based on parser/mapper generics
     handler_annotations: Dict[str, Any] = dict(getattr(handler, "__annotations__", {}))
-    # Prefer explicitly provided response_model over inferred
     if response_model is not None:
         handler_annotations["return"] = response_model
     elif inferred_output_anno is not None:
+        # Usecase OutputT drives API return type if no explicit model is provided.
         handler_annotations["return"] = inferred_output_anno
     else:
-        # Avoid annotating with JSONResponse to prevent FastAPI from attempting to
-        # create a Pydantic model for a Response type. Use starlette Response.
         handler_annotations["return"] = Response
 
-    # If we can infer a request model, expose it as "body" param type.
-    # In OpenAPI 3.1 FastAPI may render optional bodies as anyOf[object, null].
-    # We want a strict object schema when we know the model, so avoid Optional wrapper.
+    # Request model strictly from UC InputT (input_parser return type)
     if inferred_input_anno is not None:
+        # InputT should be a Pydantic model; expose it directly for OpenAPI schema
         handler_annotations["body"] = inferred_input_anno  # type: ignore[index]
 
     handler.__annotations__ = handler_annotations
