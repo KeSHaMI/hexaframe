@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Type, Union, get_origin
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Mapping,
+    Optional,
+    Type,
+    Union,
+    get_origin,
+)
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -137,17 +146,54 @@ def build_router(
         except HexaError as he:
             return error_mapper(he)
 
+    # If users pass a Pydantic model as response_model, keep it.
+    # Otherwise, try to infer from output_mapper annotation.
+    # Additionally, attach __annotations__ to
+    # handler so FastAPI can build better OpenAPI
+    # when input_parser/output_mapper provide annotated types.
+    # This keeps runtime signature simple
+    # but enhances docs.
+    # Attempt to discover annotated input/output types:
+    inferred_input_anno: Optional[Type[Any]] = None
+    inferred_output_anno: Optional[Type[Any]] = None
+
+    try:
+        if input_parser is not None:
+            in_hints = getattr(input_parser, "__annotations__", {})
+            inferred_input_anno = in_hints.get("return") or in_hints.get("out") or None
+    except Exception:
+        inferred_input_anno = None
+
+    try:
+        if output_mapper is not None:
+            out_hints = getattr(output_mapper, "__annotations__", {})
+            inferred_output_anno = out_hints.get("return") or None
+    except Exception:
+        inferred_output_anno = None
+
+    # Build synthetic annotations for FastAPI
+    handler_annotations: Dict[str, Any] = dict(getattr(handler, "__annotations__", {}))
+    # Prefer explicitly provided response_model over inferred
+    if response_model is not None:
+        handler_annotations["return"] = response_model
+    elif inferred_output_anno is not None:
+        handler_annotations["return"] = inferred_output_anno
+    else:
+        handler_annotations["return"] = JSONResponse
+
+    # If we can infer a request model, expose it as "body" param type
+    if inferred_input_anno is not None:
+        handler_annotations["body"] = Optional[inferred_input_anno]  # type: ignore[index]
+
+    handler.__annotations__ = handler_annotations
     # Register route with optional FastAPI documentation metadata
     route_register = getattr(router, http_method)
-    # If no explicit response_model provided, try to infer it from output_mapper
+    # If no explicit response_model provided,
+    # try to infer it from annotations we attached
     inferred_response_model: Optional[Type[Any]] = response_model
-    if inferred_response_model is None and output_mapper is not None:
-        # Heuristic: if output_mapper has an annotation
-        # returning a Pydantic BaseModel-like type,
-        # use it. Otherwise, leave as None and FastAPI will infer.
+    if inferred_response_model is None:
         try:
-            ret = getattr(output_mapper, "__annotations__", {}).get("return")
-            # unwrap typing like typing.Annotated / typing.Optional
+            ret = handler.__annotations__.get("return")
             origin = get_origin(ret) or ret
             if isinstance(origin, type):
                 inferred_response_model = origin  # type: ignore[assignment]

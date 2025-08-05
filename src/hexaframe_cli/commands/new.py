@@ -181,6 +181,18 @@ def new_cmd(
         # 4) Optionally install HTTP/test deps are already
         # in pyproject dependencies when selected,
         #    so no extra installs needed here.
+        # 5) Create a uv.lock for reproducible installs (skip silently if it fails)
+        try:
+            subprocess.run(["uv", "lock"], cwd=str(root), check=True)
+            typer.secho("Created uv.lock", fg=typer.colors.GREEN)
+        except Exception:
+            # Do not fail the scaffold if
+            # lock creation fails (e.g., uv <version> or network)
+            typer.secho(
+                "Skipping uv.lock creation (uv not available or failed).",
+                fg=typer.colors.YELLOW,
+            )
+
         typer.secho("Environment set up in .venv", fg=typer.colors.GREEN)
         if http_choice == "fastapi":
             typer.secho(
@@ -212,6 +224,9 @@ def new_cmd(
             "unsafe-best-match hatchling>=1.20 editables>=0.5"
         )
         typer.echo("  uv pip install --no-build-isolation -e .")
+        # Try to produce a lock as a final step; ignore errors
+        typer.echo("  # optional but recommended for reproducible installs")
+        typer.echo("  uv lock || true")
         if http_choice == "fastapi":
             typer.echo("  uv run pytest -q")
             typer.echo(
