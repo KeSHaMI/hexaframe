@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Type, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Type, Union, get_origin
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -84,6 +84,11 @@ def build_router(
     input_parser: Optional[InputParser] = None,
     output_mapper: Optional[OutputMapper] = None,
     error_mapper: Callable[[HexaError], JSONResponse] = default_error_mapper,
+    # FastAPI route metadata (optional)
+    response_model: Optional[Type[Any]] = None,
+    summary: Optional[str] = None,
+    description: Optional[str] = None,
+    tags: Optional[list[str]] = None,
 ) -> APIRouter:
     """
     Build an APIRouter that exposes the provided UseCase or AsyncUseCase
@@ -100,6 +105,8 @@ def build_router(
     if http_method not in {"get", "post", "put", "patch", "delete"}:
         raise ValueError(f"Unsupported method: {method}")
 
+    # Note: we keep a generic body: Mapping type to remain framework-agnostic,
+    # but allow FastAPI to attach response_model and docs via route registration below.
     async def handler(body: Optional[Mapping[str, Any]] = None) -> JSONResponse:
         payload = body or {}
         try:
@@ -130,6 +137,30 @@ def build_router(
         except HexaError as he:
             return error_mapper(he)
 
-    getattr(router, http_method)(path)(handler)  # register
+    # Register route with optional FastAPI documentation metadata
+    route_register = getattr(router, http_method)
+    # If no explicit response_model provided, try to infer it from output_mapper
+    inferred_response_model: Optional[Type[Any]] = response_model
+    if inferred_response_model is None and output_mapper is not None:
+        # Heuristic: if output_mapper has an annotation
+        # returning a Pydantic BaseModel-like type,
+        # use it. Otherwise, leave as None and FastAPI will infer.
+        try:
+            ret = getattr(output_mapper, "__annotations__", {}).get("return")
+            # unwrap typing like typing.Annotated / typing.Optional
+            origin = get_origin(ret) or ret
+            if isinstance(origin, type):
+                inferred_response_model = origin  # type: ignore[assignment]
+        except Exception:
+            inferred_response_model = None
+
+    route = route_register(
+        path,
+        response_model=inferred_response_model,
+        summary=summary,
+        description=description,
+        tags=tags,
+    )
+    route(handler)  # attach handler
 
     return router
