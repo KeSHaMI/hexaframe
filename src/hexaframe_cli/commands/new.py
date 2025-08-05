@@ -133,16 +133,16 @@ def new_cmd(
     typer.secho("Next steps:", fg=typer.colors.BLUE)
     typer.echo(f"  cd {project_name}")
     typer.echo("  uv venv && source .venv/bin/activate")
-    # Ensure editable installs work across indexes and provide editables for hatchling
-    common_build_cmd = (
-        "  uv pip install --index-strategy "
+    # Ensure build backend is present (hatchling)
+    # and editable support (editables) before editable install
+    typer.echo(
+        "  uv pip install --index-strategy"
         "unsafe-best-match hatchling>=1.20 editables>=0.5"
     )
-    typer.echo(common_build_cmd)
+    # Install from pyproject (build-system declares backend & deps)
+    typer.echo("  uv pip install --no-build-isolation -e .")
     if http_choice == "fastapi":
         steps = [
-            "  uv pip install --no-build-isolation -e .",
-            "  uv pip install fastapi uvicorn[standard] pytest pytest-asyncio httpx",
             "  # run tests",
             "  uv run pytest -q",
             "  # run dev server",
@@ -151,6 +151,4 @@ def new_cmd(
         for s in steps:
             typer.echo(s)
     else:
-        typer.echo("  uv pip install --no-build-isolation -e .")
-        typer.echo("  uv pip install pytest pytest-asyncio httpx")
         typer.echo("  uv run pytest -q")
