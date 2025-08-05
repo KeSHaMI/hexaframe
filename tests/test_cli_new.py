@@ -78,6 +78,9 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
             "uv",
             "pip",
             "install",
+            # allow resolving packages across all configured indexes
+            "--index-strategy",
+            "unsafe-best-match",
             # build backend for editable install
             "hatchling>=1.20",
             # ensure editable support is present for hatchling editable builds
@@ -96,7 +99,19 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     # Use --no-build-isolation to prevent uv from trying
     # to resolve workspace-only deps (like private 'hexaframe')
     r2 = run_uv(
-        ["uv", "pip", "install", "--no-build-isolation", "-e", "."], cwd=project_dir
+        [
+            "uv",
+            "pip",
+            "install",
+            "--no-build-isolation",
+            # allow resolving packages across all
+            # configured indexes when building editable
+            "--index-strategy",
+            "unsafe-best-match",
+            "-e",
+            ".",
+        ],
+        cwd=project_dir,
     )
     assert r2.returncode == 0, f"uv pip install -e . failed:\n{r2.stdout}"
 

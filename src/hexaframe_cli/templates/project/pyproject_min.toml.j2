@@ -19,8 +19,7 @@ dependencies = [
 requires = ["hatchling>=1.20", "editables>=0.5"]
 build-backend = "hatchling.build"
 
-# Configure TestPyPI as an additional index (uncomment to enable).
-# This allows resolving packages published to TestPyPI first, then falling back to PyPI.
+# Configure indices for uv: prefer PyPI to avoid outdated packages from TestPyPI.
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple"
@@ -30,6 +29,10 @@ default = true
 name = "test-pypi"
 url = "https://test.pypi.org/simple"
 default = false
+
+# If you trust all indexes equally and need to allow mixing, enable:
+# [tool.uv.index-strategy]
+# strategy = "unsafe-best-match"
 
 
 # Resolution hint:
