@@ -12,8 +12,8 @@ from typing import (
     get_origin,
 )
 
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse, Response
 from starlette.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
@@ -89,7 +89,10 @@ def build_router(
     *,
     path: str,
     method: str,
-    use_case: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]],
+    use_case: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] | None = None,
+    use_case_factory: Optional[
+        Callable[[], Union[UseCase[Any, Any], AsyncUseCase[Any, Any]]]
+    ] = None,
     input_parser: Optional[InputParser] = None,
     output_mapper: Optional[OutputMapper] = None,
     error_mapper: Callable[[HexaError], JSONResponse] = default_error_mapper,
@@ -110,20 +113,39 @@ def build_router(
     """
     router = APIRouter()
 
+    # Validate inputs: either direct use_case
+    # or a factory must be provided, but not both.
+    if (use_case is None and use_case_factory is None) or (
+        use_case is not None and use_case_factory is not None
+    ):
+        raise ValueError("Provide exactly one of 'use_case' or 'use_case_factory'.")
+
     http_method = method.lower()
     if http_method not in {"get", "post", "put", "patch", "delete"}:
         raise ValueError(f"Unsupported method: {method}")
 
     # Note: we keep a generic body: Mapping type to remain framework-agnostic,
     # but allow FastAPI to attach response_model and docs via route registration below.
-    async def handler(body: Optional[Mapping[str, Any]] = None) -> JSONResponse:
+    async def handler(
+        body: Optional[Mapping[str, Any]] = None,
+        uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] | None = None,
+    ) -> JSONResponse:
         payload = body or {}
         try:
-            uc_input = input_parser(payload) if input_parser else payload
-            if isinstance(use_case, AsyncUseCase):
-                res: Result[Any, HexaError] = await use_case.execute(uc_input)  # type: ignore[arg-type]
+            # Resolve UseCase instance: prefer dependency-injected factory if provided.
+            the_uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]]
+            if uc is not None:
+                the_uc = uc
             else:
-                res = use_case.execute(uc_input)  # type: ignore[arg-type]
+                # Fallback for direct instance mode
+                assert use_case is not None
+                the_uc = use_case
+
+            uc_input = input_parser(payload) if input_parser else payload
+            if isinstance(the_uc, AsyncUseCase):
+                res: Result[Any, HexaError] = await the_uc.execute(uc_input)  # type: ignore[arg-type]
+            else:
+                res = the_uc.execute(uc_input)  # type: ignore[arg-type]
             if isinstance(res, Ok):
                 out = res.unwrap()
                 mapped = output_mapper(out) if output_mapper else to_serializable(out)
@@ -179,7 +201,9 @@ def build_router(
     elif inferred_output_anno is not None:
         handler_annotations["return"] = inferred_output_anno
     else:
-        handler_annotations["return"] = JSONResponse
+        # Avoid annotating with JSONResponse to prevent FastAPI from attempting to
+        # create a Pydantic model for a Response type. Use starlette Response.
+        handler_annotations["return"] = Response
 
     # If we can infer a request model, expose it as "body" param type
     if inferred_input_anno is not None:
@@ -195,18 +219,45 @@ def build_router(
         try:
             ret = handler.__annotations__.get("return")
             origin = get_origin(ret) or ret
-            if isinstance(origin, type):
-                inferred_response_model = origin  # type: ignore[assignment]
+            # If the inferred return type
+            # is a Response type, do not set a response_model
+            if isinstance(origin, type) and not issubclass(origin, Response):
+                inferred_response_model = origin
+            else:
+                inferred_response_model = None
         except Exception:
             inferred_response_model = None
 
-    route = route_register(
-        path,
-        response_model=inferred_response_model,
+    route_kwargs: Dict[str, Any] = dict(
         summary=summary,
         description=description,
         tags=tags,
     )
-    route(handler)  # attach handler
+    # Only pass response_model if
+    # it's not None to avoid FastAPI trying to model Response
+    if inferred_response_model is not None:
+        route_kwargs["response_model"] = inferred_response_model
+
+    # Ensure FastAPI treats the 'body' parameter as a JSON request body and does not
+    # attempt to validate it with Pydantic (we validate inside UseCase). We do this by
+    # explicitly marking it as Body(...) with arbitrary schema.
+    from fastapi import Body  # local import to avoid hard dependency at module import
+
+    async def _wrapped(
+        body: Optional[Mapping[str, Any]] = Body(default=None),
+        uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] = Depends(use_case_factory)  # type: ignore[arg-type]
+        if use_case_factory is not None
+        else Depends(lambda: use_case),  # type: ignore[arg-type]
+    ) -> JSONResponse:  # type: ignore[valid-type]
+        return await handler(body, uc)
+
+    # Preserve annotations for OpenAPI generation
+    _wrapped.__annotations__ = handler.__annotations__
+
+    route = route_register(
+        path,
+        **route_kwargs,
+    )
+    route(_wrapped)  # attach handler
 
     return router
