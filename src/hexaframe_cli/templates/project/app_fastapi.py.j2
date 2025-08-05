@@ -39,6 +39,9 @@ router = build_router(
     use_case=Ping(),
     # Map FastAPI request body (Pydantic model) to use-case input type
     input_parser=lambda body: PingIn.model_validate(body),
+    # Provide explicit response_model so OpenAPI shows precise response schema
+    response_model=PingOut,
+    summary="Wrapped",
     # Map use-case output type to FastAPI response (Pydantic model or dict)
     # Ensure JSON-serializable dict is returned (Pydantic BaseModel -> dict)
     output_mapper=lambda out: out.model_dump() if hasattr(out, "model_dump") else (out.dict() if hasattr(out, "dict") else out),

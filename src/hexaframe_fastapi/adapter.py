@@ -205,9 +205,11 @@ def build_router(
         # create a Pydantic model for a Response type. Use starlette Response.
         handler_annotations["return"] = Response
 
-    # If we can infer a request model, expose it as "body" param type
+    # If we can infer a request model, expose it as "body" param type.
+    # In OpenAPI 3.1 FastAPI may render optional bodies as anyOf[object, null].
+    # We want a strict object schema when we know the model, so avoid Optional wrapper.
     if inferred_input_anno is not None:
-        handler_annotations["body"] = Optional[inferred_input_anno]  # type: ignore[index]
+        handler_annotations["body"] = inferred_input_anno  # type: ignore[index]
 
     handler.__annotations__ = handler_annotations
     # Register route with optional FastAPI documentation metadata
@@ -243,12 +245,18 @@ def build_router(
     # explicitly marking it as Body(...) with arbitrary schema.
     from fastapi import Body  # local import to avoid hard dependency at module import
 
+    # Drive OpenAPI request schema using handler annotations only, do not introduce
+    # synthetic Pydantic models which can break across pydantic versions.
     async def _wrapped(
-        body: Optional[Mapping[str, Any]] = Body(default=None),
+        # Make request body required so OpenAPI shows a strict object (not object|null).
+        # Keep annotation from handler (__annotations__['body']) to inform schema.
+        body=Body(...),
         uc: Union[UseCase[Any, Any], AsyncUseCase[Any, Any]] = Depends(use_case_factory)  # type: ignore[arg-type]
         if use_case_factory is not None
         else Depends(lambda: use_case),  # type: ignore[arg-type]
     ) -> JSONResponse:  # type: ignore[valid-type]
+        # body is already a Mapping from FastAPI
+        # due to handler annotation; pass through.
         return await handler(body, uc)
 
     # Preserve annotations for OpenAPI generation

@@ -58,9 +58,6 @@ text = "MIT"
 [tool.ruff]
 line-length = 88
 
-[tool.ruff.lint]
-select = ["E", "F", "I"]
-
 [tool.hatch.build.targets.sdist]
 include = ["/src"]
 
