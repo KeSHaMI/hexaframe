@@ -198,7 +198,8 @@ def build_router(
     except Exception:
         inferred_input_anno = None
 
-    # Infer Tout from output_mapper: first param type OR return type of a mapping callable
+    # Infer Tout from output_mapper: first param type
+    # OR return type of a mapping callable
     try:
         if output_mapper is not None:
             out_hints = getattr(output_mapper, "__annotations__", {})

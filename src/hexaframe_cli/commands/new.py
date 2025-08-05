@@ -138,6 +138,17 @@ def new_cmd(
     )
     write_file(root / "pyproject.toml", pyproject, exist_ok=True)
 
+    # Update README with DB/compose instructions if postgres selected
+    if http_choice == "fastapi" and db_choice == "postgres":
+        readme_text = render_text(
+            "project/README.md.j2",
+            {
+                "project_name": project_name,
+                "package_name": package_name,
+            },
+        )
+        write_file(root / "README.md", readme_text, exist_ok=True, overwrite=True)
+
     # Auto-setup environment so the user can run immediately
     # 1) Create venv
     try:

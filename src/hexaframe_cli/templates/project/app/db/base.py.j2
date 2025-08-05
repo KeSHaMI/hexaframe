@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+from typing import Any
+from uuid import uuid4
+
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class UUIDBase(Base):
+    __abstract__ = True
+
+    # Portable UUID primary key stored as string
+    # (avoids requiring PG-specific UUID + extensions at bootstrap)
+    id: Mapped[str] = mapped_column(
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )

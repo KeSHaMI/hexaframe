@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps for building some wheels (psycopg2-binary not needed; we use asyncpg)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl ca-certificates git \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /code
+
+# Copy minimal metadata first for better layer caching
+COPY pyproject.toml ./pyproject.toml
+# uv.lock is optional; COPY if exists during render stage
+# The generator won't error if absent in runtime build context
+# COPY uv.lock ./uv.lock
+
+# Install project in editable mode for live-reload dev experience
+# We rely on pip here to avoid requiring uv inside the container
+RUN pip install --upgrade pip setuptools wheel \
+  && pip install -e .
+
+# Copy the rest of the source code
+COPY . .
+
+EXPOSE 8000
+
+# Default command mirrors docker-compose; override as needed
+CMD ["uvicorn", "{{ package_name }}.interface.http.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

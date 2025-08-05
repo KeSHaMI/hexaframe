@@ -1,22 +1,46 @@
 from __future__ import annotations
 
-from typing import Optional
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
 
-from hexaframe.errors import ValidationError
-from hexaframe.use_case import UseCase
 from hexaframe_fastapi import build_router
 
+# Import DI container lazily to avoid import errors in tests that load this file directly.
+# The scaffold installs the package editable, so absolute imports work at runtime.
+def get_container():
+    from {{ package_name }}.di import Container  # type: ignore
+    return Container()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    container = get_container()
+    try:
+        # Store container on app.state for handlers/tests to retrieve
+        app.state.container = container  # type: ignore[attr-defined]
+        yield
+    finally:
+        await container.shutdown()
+
+
+app = FastAPI(
+    title="Hexaframe App",
+    description="Starter FastAPI app scaffolded by hexaframe with DB/DI and a ping route.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# Build ping endpoint using hexaframe_fastapi exactly like the previous scaffold.
+# Keep POST /ping with PingIn/PingOut and concrete use case instance.
+from pydantic import BaseModel, Field
+from hexaframe.errors import ValidationError
+from hexaframe.use_case import UseCase
 
 class PingIn(BaseModel):
     name: str = Field(..., examples=["Alice"], description="Name to greet")
 
-
 class PingOut(BaseModel):
     message: str = Field(..., examples=["hello, Alice"], description="Greeting message")
-
 
 class Ping(UseCase[PingIn, PingOut]):
     def validate(self, input: PingIn) -> None:
@@ -25,13 +49,6 @@ class Ping(UseCase[PingIn, PingOut]):
 
     def perform(self, input: PingIn) -> PingOut:
         return PingOut(message=f"hello, {input.name}")
-
-
-app = FastAPI(
-    title="Hexaframe App",
-    description="Starter FastAPI app scaffolded by hexaframe with typed request/response models for proper OpenAPI docs.",
-    version="0.1.0",
-)
 
 def _parse_ping(body: dict) -> PingIn:
     return PingIn.model_validate(body)

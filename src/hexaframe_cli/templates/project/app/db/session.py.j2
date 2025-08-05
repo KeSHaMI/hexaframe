@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
+from {{ package_name }}.db.config import get_settings
+
+
+def make_engine() -> AsyncEngine:
+    settings = get_settings()
+    # Prefer explicit DATABASE_URL if set, else computed property
+    url = settings.DATABASE_URL or settings.database_url
+    return create_async_engine(url, echo=False, pool_pre_ping=True, future=True)
+
+
+def make_session_factory(engine: AsyncEngine) -> sessionmaker[AsyncSession]:
+    return sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+
+
+@asynccontextmanager
+async def lifespan_engine() -> AsyncGenerator[AsyncEngine, None]:
+    engine = make_engine()
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+async def get_session(session_factory: sessionmaker[AsyncSession]) -> AsyncGenerator[AsyncSession, None]:
+    async with session_factory() as session:
+        yield session

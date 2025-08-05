@@ -7,7 +7,9 @@ dependencies = [
     "hexaframe>=0.1.0",
     {% if http_adapter == "fastapi" %}"fastapi>=0.109.0,<1.0", "uvicorn[standard]>=0.27.0",{% endif %}
     {% if tests == "pytest" %}"pytest>=8.0.0", "pytest-cov>=4.1.0","pytest-asyncio>=0.23.0","httpx>=0.24.0",{% endif %}
-    {% if db == "postgres" %}"sqlalchemy>=2.0.25", "asyncpg>=0.29.0",{% elif db == "sqlite" %}"sqlalchemy>=2.0.25",{% endif %}
+    "sqlalchemy>=2.0.25",
+    {% if db == "postgres" %}"asyncpg>=0.29.0",{% endif %}
+    "alembic>=1.13.1",
     "pydantic-settings>=2.1.0",
     "python-dotenv>=1.0.1",
 ]

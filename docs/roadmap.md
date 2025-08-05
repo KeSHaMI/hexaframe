@@ -9,42 +9,43 @@ Implemented (present with tests where noted):
   - Result/Either with Ok/Err and helpers (sync + async): src/hexaframe/result.py; tests in tests/test_result.py.
   - Error hierarchy with code/message/details: src/hexaframe/errors.py; tests in tests/test_errors.py.
   - Use case bases (sync/async) with hooks and error capture: src/hexaframe/use_case.py; tests in tests/test_use_case_base.py.
-  - Ports protocols: LoggerPort, ClockPort, UuidPort in src/hexaframe/ports.py.
+  - Ports protocols (LoggerPort, ClockPort, UuidPort): src/hexaframe/ports.py.
   - UnitOfWork protocol with sync/async context hooks: src/hexaframe/uow.py.
   - Common types and to_serializable: src/hexaframe/types.py.
-  - DI utilities: src/hexaframe/di.py; tests in tests/test_di.py.
+  - Endpoint helper: src/hexaframe/endpoint.py.
 - Adapters (Step B):
-  - FastAPI adapter build_router with error mapping: src/hexaframe_fastapi/adapter.py; tests in tests/test_fastapi_adapter.py.
-  - Decorators module present: src/hexaframe_fastapi/decorators.py; endpoint helper present: src/hexaframe/endpoint.py.
+  - FastAPI adapter with error mapping and route builder: src/hexaframe_fastapi/adapter.py; tests in tests/test_fastapi_adapter.py and tests/test_openapi_scaffold.py.
+  - Decorators module present: src/hexaframe_fastapi/decorators.py.
   - Example app: examples/quickstart/app.py.
-- TestKit (partial Step C):
-  - Base testkit module: src/hexaframe/testkit.py; tests in tests/test_testkit.py.
+- TestKit (Step C - initial):
+  - Base testkit module: src/hexaframe/testkit.py + fixtures in src/hexaframe/testkit/fixtures.py; tests in tests/test_testkit.py.
 - CLI (Step D):
   - Typer CLI with new/generate: src/hexaframe_cli/*; tests in tests/test_cli_new.py and tests/test_cli_generate.py.
-  - Templates for project and generators in src/hexaframe_cli/templates/*.
+  - Project and generator templates: src/hexaframe_cli/templates/*.
+  - Early DX command scaffolding present (dx.py).
 
 ## What’s Left (Gaps vs Roadmap)
 
 Step A – Core polishing
-- Add tests that exercise UnitOfWork protocol semantics for both sync and async context-manager flows (begin/commit/rollback, error paths).
+- Add tests for UnitOfWork sync/async semantics (begin/commit/rollback, error paths).
 - Extend to_serializable tests for dataclasses, enums, datetime, mappings, and sequence edge cases.
 
 Step B – Adapters and decorators
-- Flask adapter: implement optional Flask/WSGI adapter mirroring FastAPI behavior (request parsing, output mapping, error mapping).
+- Flask adapter: optional WSGI adapter mirroring FastAPI behavior (request parsing, output mapping, error mapping).
 - Decorators/DX:
-  - Ensure decorators expose @endpoint/@use_case ergonomics with ability to register input/output schemas and documented errors.
-  - Add/expand tests for decorators, including async routes.
+  - Expose @endpoint/@use_case ergonomics with ability to register input/output schemas and documented errors.
+  - Add tests for decorators, including async routes.
 - Error/status coverage:
-  - Confirm/customize mappings for authentication (401) and any additional domain/infra cases as needed.
+  - Confirm/customize mappings for authentication (401) and additional domain/infra cases as needed.
 - Keep Pydantic v2 usage within adapters; document that core remains dependency-free.
 
 Step C – Testing-first experience
 - TestKit expansions:
   - InMemoryRepository base and InMemoryEventBus.
-  - FakeClock (implements ClockPort) and StubUuid (implements UuidPort).
+  - FakeClock (ClockPort) and StubUuid (UuidPort).
   - TestHarness to execute use cases with fakes and capture logs/events.
 - Pytest fixtures:
-  - Provide fixtures for app container and FastAPI http_client.
+  - Provide fixtures for app/container and FastAPI http_client.
   - Example tests: unit (domain rule), use case with mocked ports, integration (in-memory repo), E2E (FastAPI test client).
 
 Step D – CLI scaffolder

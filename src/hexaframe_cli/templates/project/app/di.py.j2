@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from contextlib import AsyncExitStack
+from typing import Callable
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from {{ package_name }}.db.session import make_engine, make_session_factory
+from {{ package_name }}.db.config import get_settings
+from {{ package_name }}.usecases.pong import PongUseCase
+
+
+class Container:
+    """
+    Minimal dependency container for the app.
+    Builds and owns the DB engine and session factory,
+    and provides factories for use cases.
+    """
+
+    def __init__(self) -> None:
+        self.settings = get_settings()
+        self.engine: AsyncEngine = make_engine()
+        self.session_factory: sessionmaker[AsyncSession] = make_session_factory(self.engine)
+
+    # Use-case factories
+    def pong_use_case_factory(self) -> PongUseCase:
+        return PongUseCase()
+
+    async def shutdown(self) -> None:
+        await self.engine.dispose()

@@ -2,72 +2,87 @@
 
 Scaffolded with Hexaframe CLI.
 
-## Getting started
+This template includes:
+- FastAPI app with a ping endpoint
+- Docker Compose with Postgres and an app service
+- .env configuration
+- SQLAlchemy (async) + Alembic
+- Simple DI container exposing DB utilities and a Pong use case
 
-This project can be used in two modes:
-1) Local development against a local clone of Hexaframe (recommended while Hexaframe isn't published to PyPI)
-2) Production/PyPI mode (once Hexaframe is published)
+## Quick start
 
-### 1) Local development with a local Hexaframe clone
+### 0) Prerequisites
+- Python 3.11+
+- Docker and Docker Compose
+- uv (https://github.com/astral-sh/uv) or pip
 
-- Create and activate a virtual environment (using uv):
-  uv venv
-  source .venv/bin/activate
+### 1) Local run (without Docker)
+1. Create venv and install:
+   uv venv
+   source .venv/bin/activate
+   uv pip install --index-strategy unsafe-best-match hatchling>=1.20 editables>=0.5
+   uv pip install --no-build-isolation -e .
 
-- Point uv to your local Hexaframe checkout by uncommenting [tool.uv.sources] in pyproject.toml and adjusting the paths:
-  [tool.uv.sources]
-  hexaframe = { path = "/abs/path/to/hexaframe", editable = true }
-  hexaframe-cli = { path = "/abs/path/to/hexaframe/src/hexaframe_cli", editable = true }
-  hexaframe-fastapi = { path = "/abs/path/to/hexaframe/src/hexaframe_fastapi", editable = true }
+2. Configure environment:
+   - Copy and edit .env if needed (defaults use localhost).
 
-  This makes uv prefer local sources over PyPI for these packages.
+3. Run DB migrations (optional initially, once you add models):
+   alembic upgrade head
 
-- Install build tooling and runtime/dev deps (ensure editables is available for editable builds):
-  uv pip install --index-strategy unsafe-best-match hatchling>=1.20 editables>=0.5
-  uv pip install -e .
-  {% if http_adapter == "fastapi" -%}
-  uv pip install fastapi uvicorn[standard]
-  {%- endif %}
-  {% if tests == "pytest" -%}
-  uv pip install pytest pytest-asyncio
-  {%- endif %}
+4. Start app:
+   uv run uvicorn {{ package_name }}.interface.http.app:app --reload
 
-- Run tests:
+5. Test ping:
+   curl http://127.0.0.1:8000/ping
+
+### 2) Run with Docker Compose (DB + app)
+1. Start services:
+   docker compose up -d
+
+   Notes:
+   - Postgres is exposed on 5432.
+   - App is exposed on http://127.0.0.1:8000
+   - .env provides defaults; the compose app service uses DATABASE_URL_DOCKER to force host=db.
+
+2. View logs:
+   docker compose logs -f app
+
+3. Stop services:
+   docker compose down
+
+### Alembic usage
+- Create a new migration after modifying models:
+  alembic revision --autogenerate -m "init"
+- Apply migrations:
+  alembic upgrade head
+- Downgrade:
+  alembic downgrade -1
+
+Alembic is configured to:
+- Load DATABASE_URL from environment or .env via pydantic-settings
+- Use async engine
+- Target SQLAlchemy metadata at {{ package_name }}.db.base.Base.metadata
+
+### Project layout
+- src/{{ package_name }}/interface/http/app.py  FastAPI app with DI + ping
+- src/{{ package_name }}/db/config.py           pydantic-settings config
+- src/{{ package_name }}/db/session.py          async engine + session factory
+- src/{{ package_name }}/db/base.py             Declarative base with UUID id
+- src/{{ package_name }}/di.py                  DI container
+- src/{{ package_name }}/usecases/pong.py       PongUseCase
+- alembic/                                      Alembic env and versions
+- docker-compose.yml                            DB + app services
+- Dockerfile                                    Dev app image
+- .env                                          Environment variables
+
+### Environment variables
+See .env. Typical values:
+- POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+- DATABASE_URL (local)
+- DATABASE_URL_DOCKER (used by docker-compose app service)
+
+When running inside docker-compose, the DB host is db. Locally, host is localhost by default.
+
+### Tests
+If pytest was selected:
   uv run pytest -q
-
-- Run the app (if http scaffold selected):
-  uv run uvicorn {{ package_name }}.interface.http.app:app --reload
-
-### 2) Production/PyPI mode
-
-Once Hexaframe is available on PyPI, you can rely on PyPI dependencies without local sources:
-
-- Create and activate venv:
-  uv venv
-  source .venv/bin/activate
-
-- Install this project and deps (ensure editables is available for editable builds):
-  uv pip install --index-strategy unsafe-best-match hatchling>=1.20 editables>=0.5
-  uv pip install --no-build-isolation -e .
-  {% if http_adapter == "fastapi" -%}
-  uv pip install fastapi uvicorn[standard]
-  {%- endif %}
-  {% if tests == "pytest" -%}
-  uv pip install pytest pytest-asyncio
-  {%- endif %}
-
-- After install, you can verify, format, and run quickly:
-  # show installed packages (sanity check)
-  uv pip list
-  # run tests
-  uv run pytest -q
-  {% if http_adapter == "fastapi" -%}
-  # run app
-  uv run uvicorn {{ package_name }}.interface.http.app:app --reload
-  {%- endif %}
-
-- Run tests:
-  uv run pytest -q
-
-- Run the app (if http scaffold selected):
-  uv run uvicorn {{ package_name }}.interface.http.app:app --reload

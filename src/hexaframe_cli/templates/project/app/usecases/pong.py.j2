@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from typing import Any, Mapping
+
+try:
+    # Prefer the hexaframe use case base if available
+    from hexaframe.use_case import UseCase
+except Exception:  # pragma: no cover
+    class UseCase:  # type: ignore
+        async def execute(self, *args: Any, **kwargs: Any) -> Any:  # noqa: D401
+            """Override in subclasses."""
+            raise NotImplementedError
+
+
+class PongUseCase(UseCase):
+    async def execute(self, _: Mapping[str, Any] | None = None) -> dict[str, str]:
+        return {"pong": "ok"}
