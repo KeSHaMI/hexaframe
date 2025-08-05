@@ -1,29 +1,50 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 from hexaframe.errors import ValidationError
 from hexaframe.use_case import UseCase
 from hexaframe_fastapi import build_router
 
 
-class Ping(UseCase[dict, dict]):
-    def validate(self, input: dict) -> None:
-        if "name" not in input:
+class PingIn(BaseModel):
+    name: str = Field(..., examples=["Alice"], description="Name to greet")
+
+
+class PingOut(BaseModel):
+    message: str = Field(..., examples=["hello, Alice"], description="Greeting message")
+
+
+class Ping(UseCase[PingIn, PingOut]):
+    def validate(self, input: PingIn) -> None:
+        if not input.name:
             raise ValidationError("missing 'name'")
 
-    def perform(self, input: dict) -> dict:
-        return {"message": f"hello, {input['name']}"}
+    def perform(self, input: PingIn) -> PingOut:
+        return PingOut(message=f"hello, {input.name}")
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Hexaframe App",
+    description="Starter FastAPI app scaffolded by hexaframe with typed request/response models for proper OpenAPI docs.",
+    version="0.1.0",
+)
 
 router = build_router(
     path="/ping",
     method="post",
     use_case=Ping(),
-    input_parser=lambda body: dict(body),
+    # Map FastAPI request body (Pydantic model) to use-case input type
+    input_parser=lambda body: PingIn.model_validate(body),
+    # Map use-case output type to FastAPI response (Pydantic model or dict)
     output_mapper=lambda out: out,
+    summary="Ping endpoint",
+    description="Greets the provided name to demonstrate typed I/O and proper OpenAPI schema.",
+    tags=["ping"],
+    response_model=PingOut,
 )
 
 app.include_router(router)
