@@ -22,14 +22,15 @@ build-backend = "hatchling.build"
 # Configure TestPyPI as an additional index (uncomment to enable).
 # This allows resolving packages published to TestPyPI first, then falling back to PyPI.
 [[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
 name = "test-pypi"
 url = "https://test.pypi.org/simple"
 default = false
 
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-default = true
 
 # Resolution hint:
 # - uv respects multiple [[tool.uv.index]] entries; you can also use --index and --extra-index-url flags.
