@@ -80,6 +80,8 @@ def test_cli_scaffold_fastapi_sample(tmp_path: Path):
             "install",
             # build backend for editable install
             "hatchling>=1.20",
+            # ensure editable support is present for hatchling editable builds
+            "editables>=0.5",
             # runtime + test deps
             "fastapi",
             "pytest",
