@@ -111,11 +111,19 @@ def build_router(
             if isinstance(res, Ok):
                 out = res.unwrap()
                 mapped = output_mapper(out) if output_mapper else to_serializable(out)
+                # Ensure JSON-serializable content.
+                # If a Pydantic model or dataclass slips through,
+                # convert it to a dict using to_serializable() best-effort mapping.
+                serializable_content: Mapping[str, Any]
+                if isinstance(mapped, Mapping):
+                    serializable_content = {
+                        k: to_serializable(v) for k, v in mapped.items()
+                    }
+                else:
+                    serializable_content = {"data": to_serializable(mapped)}
                 return JSONResponse(
                     status_code=HTTP_200_OK,
-                    content=(
-                        mapped if isinstance(mapped, Mapping) else {"data": mapped}
-                    ),
+                    content=serializable_content,
                 )
             else:
                 return error_mapper(res.unwrap_err())

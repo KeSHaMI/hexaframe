@@ -296,7 +296,7 @@ wheels = [
 
 [[package]]
 name = "hexaframe"
-version = "0.1.9"
+version = "0.1.13"
 source = { editable = "." }
 dependencies = [
     { name = "dependency-injector" },
