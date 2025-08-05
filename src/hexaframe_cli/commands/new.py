@@ -138,25 +138,79 @@ def new_cmd(
     )
     write_file(root / "pyproject.toml", pyproject, exist_ok=True)
 
-    typer.secho("Next steps:", fg=typer.colors.BLUE)
-    typer.echo(f"  cd {project_name}")
-    typer.echo("  uv venv && source .venv/bin/activate")
-    # Ensure build backend is present (hatchling)
-    # and editable support (editables) before editable install
-    typer.echo(
-        "  uv pip install --index-strategy "
-        "unsafe-best-match hatchling>=1.20 editables>=0.5"
-    )
-    # Install from pyproject (build-system declares backend & deps)
-    typer.echo("  uv pip install --no-build-isolation -e .")
-    if http_choice == "fastapi":
-        steps = [
-            "  # run tests",
-            "  uv run pytest -q",
-            "  # run dev server",
-            f"  uv run uvicorn {package_name}.interface.http.app:app --reload",
-        ]
-        for s in steps:
-            typer.echo(s)
-    else:
-        typer.echo("  uv run pytest -q")
+    # Auto-setup environment so the user can run immediately
+    # 1) Create venv
+    try:
+        import subprocess
+
+        subprocess.run(["uv", "venv"], cwd=str(root), check=True)
+        # 2) Install build tooling required for editable installs
+        subprocess.run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--index-strategy",
+                "unsafe-best-match",
+                "hatchling>=1.20",
+                "editables>=0.5",
+            ],
+            cwd=str(root),
+            check=True,
+        )
+        # 3) Install project from pyproject
+        subprocess.run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--no-build-isolation",
+                "--index-strategy",
+                "unsafe-best-match",
+                "-e",
+                ".",
+            ],
+            cwd=str(root),
+            check=True,
+        )
+        # 4) Optionally install HTTP/test deps are already
+        # in pyproject dependencies when selected,
+        #    so no extra installs needed here.
+        typer.secho("Environment set up in .venv", fg=typer.colors.GREEN)
+        if http_choice == "fastapi":
+            typer.secho(
+                "You can now run:\n"
+                f"  cd {project_name}\n"
+                "  source .venv/bin/activate\n"
+                "  uv run pytest -q\n"
+                f"  uv run uvicorn {package_name}.interface.http.app:app --reload",
+                fg=typer.colors.BLUE,
+            )
+        else:
+            typer.secho(
+                "You can now run:\n"
+                f"  cd {project_name}\n"
+                "  source .venv/bin/activate\n"
+                "  uv run pytest -q",
+                fg=typer.colors.BLUE,
+            )
+    except Exception:
+        # Fallback to printed instructions if automation fails
+        typer.secho(
+            "Automatic environment setup failed; please run manually:",
+            fg=typer.colors.YELLOW,
+        )
+        typer.echo(f"  cd {project_name}")
+        typer.echo("  uv venv && source .venv/bin/activate")
+        typer.echo(
+            "  uv pip install --index-strategy "
+            "unsafe-best-match hatchling>=1.20 editables>=0.5"
+        )
+        typer.echo("  uv pip install --no-build-isolation -e .")
+        if http_choice == "fastapi":
+            typer.echo("  uv run pytest -q")
+            typer.echo(
+                f"  uv run uvicorn {package_name}.interface.http.app:app --reload"
+            )
+        else:
+            typer.echo("  uv run pytest -q")

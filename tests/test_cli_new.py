@@ -86,6 +86,74 @@ def test_cli_scaffold_includes_option_deps_in_pyproject(tmp_path: Path):
 @pytest.mark.skipif(
     sys.platform.startswith("win"), reason="Path activation differs on Windows"
 )
+def test_cli_scaffold_auto_setup_env(tmp_path: Path):
+    """
+    Ensure `hexaframe new` auto-creates a venv and installs the project
+    using the unsafe-best-match index strategy, so users can run immediately.
+    """
+    project_dir = tmp_path / "myproj"
+
+    # Invoke the CLI by running the module with Python, pointing PYTHONPATH to our src
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path("src").resolve())
+
+    # Create the project (this should perform auto-setup: uv venv + installs)
+    create = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; sys.path.insert(0, r'%s'); "
+                "from hexaframe_cli.main import new; "
+                "new(project_name='myproj', http='fastapi', tests='pytest', "
+                "package=None, sample=True, db='postgres')"
+            )
+            % str(Path("src").resolve()),
+        ],
+        cwd=str(tmp_path),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert create.returncode == 0, f"CLI new failed:\n{create.stdout}"
+
+    # Validate the venv exists
+    assert (project_dir / ".venv").exists(), "Auto-created .venv is missing"
+
+    # Validate editable install resulted in an
+    # importable package by running pytest in-project venv
+    # Use UV_ACTIVE=1 to target the project venv and avoid repo-level virtual envs.
+    # Include index strategy to resolve deps across PyPI and TestPyPI.
+    # Use --no-build-isolation to avoid setuptools legacy
+    # build quirks from TestPyPI artifacts,
+    # and include index strategy to resolve across indexes.
+    # Force uv to use the project's venv and avoid rebuilding deps on run
+    env2 = os.environ.copy()
+    env2["UV_ACTIVE"] = "1"
+    env2["UV_NO_SYNC"] = "1"
+    r = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-build-isolation",
+            "--index-strategy",
+            "unsafe-best-match",
+            "pytest",
+            "-q",
+        ],
+        cwd=str(project_dir),
+        env=env2,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert r.returncode == 0, f"Auto-setup environment tests failed:\n{r.stdout}"
+
+
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="Path activation differs on Windows"
+)
 def test_cli_scaffold_fastapi_sample(tmp_path: Path):
     # Arrange: create a simple runner that invokes our CLI module directly
     # We avoid installing console scripts; import and call main using python -m.
