@@ -22,7 +22,8 @@ This project can be used in two modes:
 
   This makes uv prefer local sources over PyPI for these packages.
 
-- Install this project and other runtime/dev deps:
+- Install build tooling and runtime/dev deps (ensure editables is available for editable builds):
+  uv pip install --index-strategy unsafe-best-match hatchling>=1.20 editables>=0.5
   uv pip install -e .
   {% if http_adapter == "fastapi" -%}
   uv pip install fastapi uvicorn[standard]
@@ -45,13 +46,24 @@ Once Hexaframe is available on PyPI, you can rely on PyPI dependencies without l
   uv venv
   source .venv/bin/activate
 
-- Install this project and deps:
-  uv pip install -e .
+- Install this project and deps (ensure editables is available for editable builds):
+  uv pip install --index-strategy unsafe-best-match hatchling>=1.20 editables>=0.5
+  uv pip install --no-build-isolation -e .
   {% if http_adapter == "fastapi" -%}
   uv pip install fastapi uvicorn[standard]
   {%- endif %}
   {% if tests == "pytest" -%}
   uv pip install pytest pytest-asyncio
+  {%- endif %}
+
+- After install, you can verify, format, and run quickly:
+  # show installed packages (sanity check)
+  uv pip list
+  # run tests
+  uv run pytest -q
+  {% if http_adapter == "fastapi" -%}
+  # run app
+  uv run uvicorn {{ package_name }}.interface.http.app:app --reload
   {%- endif %}
 
 - Run tests:
