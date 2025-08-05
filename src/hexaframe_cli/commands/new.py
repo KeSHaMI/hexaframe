@@ -145,6 +145,9 @@ def new_cmd(
 
         subprocess.run(["uv", "venv"], cwd=str(root), check=True)
         # 2) Install build tooling required for editable installs
+        # and legacy builds from TestPyPI if needed
+        #    Include setuptools and wheel to satisfy
+        # packages using legacy setuptools backend (e.g., some TestPyPI artifacts).
         subprocess.run(
             [
                 "uv",
@@ -154,6 +157,8 @@ def new_cmd(
                 "unsafe-best-match",
                 "hatchling>=1.20",
                 "editables>=0.5",
+                "setuptools>=68",
+                "wheel>=0.41",
             ],
             cwd=str(root),
             check=True,
